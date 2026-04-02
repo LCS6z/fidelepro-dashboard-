@@ -12,6 +12,7 @@ function Dashboard() {
       headers: { Authorization: `Bearer ${token}` }
     }).then(res => setClients(res.data.clients))
       .catch(err => console.log(err));
+      // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const deconnexion = () => {
