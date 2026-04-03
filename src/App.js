@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Clients from './pages/Clients';
+import InscriptionSuccess from './pages/InscriptionSuccess';
 import './App.css';
 
 function App() {
@@ -14,6 +15,8 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={token ? <Dashboard /> : <Navigate to="/login" />} />
         <Route path="/clients" element={token ? <Clients /> : <Navigate to="/login" />} />
+        <Route path="/inscription-success" element={<InscriptionSuccess />} />
+        <Route path="/inscription-annulee" element={<Navigate to="/login" />} />
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </Router>
