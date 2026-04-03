@@ -5,7 +5,7 @@ const API = 'https://fid-lepro-production.up.railway.app';
 
 const VIOLET = '#6637ee';
 const BLANC = '#ffffff';
-const GRIS = '#f5f5f5';
+
 
 function Login() {
   const [email, setEmail] = useState('');

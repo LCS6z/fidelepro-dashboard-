@@ -21,10 +21,6 @@ export default function Admin() {
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
-  useEffect(() => {
-    chargerDonnees();
-  }, []);
-
   const chargerDonnees = async () => {
     setLoading(true);
     try {
@@ -43,6 +39,9 @@ export default function Admin() {
     }
     setLoading(false);
   };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { chargerDonnees(); }, []);
 
   const changerStatut = async (id, statut) => {
     try {
@@ -71,7 +70,6 @@ export default function Admin() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: GRIS, fontFamily: 'Segoe UI, sans-serif' }}>
-      {/* Header */}
       <div style={{ backgroundColor: VIOLET, padding: '20px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ color: BLANC, margin: 0, fontSize: '24px' }}>🛡️ Panel Admin — FidèlePro</h1>
         <button onClick={() => { localStorage.clear(); window.location.href = '/login'; }}
@@ -80,7 +78,6 @@ export default function Admin() {
         </button>
       </div>
 
-      {/* Stats globales */}
       {stats && (
         <div style={{ display: 'flex', gap: '16px', padding: '24px 32px', flexWrap: 'wrap' }}>
           {[
@@ -98,7 +95,6 @@ export default function Admin() {
         </div>
       )}
 
-      {/* Onglets */}
       <div style={{ display: 'flex', gap: '8px', padding: '0 32px', marginBottom: '24px' }}>
         {[
           { id: 'commercants', label: '🏪 Commerçants' },
@@ -113,8 +109,6 @@ export default function Admin() {
       </div>
 
       <div style={{ padding: '0 32px 32px' }}>
-
-        {/* Commerçants */}
         {onglet === 'commercants' && (
           <div style={{ backgroundColor: BLANC, borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -157,7 +151,6 @@ export default function Admin() {
           </div>
         )}
 
-        {/* Clients */}
         {onglet === 'clients' && (
           <div style={{ backgroundColor: BLANC, borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -182,7 +175,6 @@ export default function Admin() {
           </div>
         )}
 
-        {/* Scans */}
         {onglet === 'scans' && (
           <div style={{ backgroundColor: BLANC, borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
