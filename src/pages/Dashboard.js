@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { key: 'recompenses', label: '🏆 Récompenses' },
   { key: 'campagne', label: '📣 Campagne' },
   { key: 'avis', label: '⭐ Avis' },
+  { key: 'profil', label: '⚙️ Profil' },
 ];
 
 function StatCard({ value, label, color, icon }) {
@@ -416,6 +417,8 @@ function PageAvis({ token }) {
   const [moyenne, setMoyenne] = useState(null);
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState('');
+  const [reponses, setReponses] = useState({});
+  const [repondant, setRepondant] = useState(null);
 
   useEffect(() => {
     const commercantId = localStorage.getItem('commercantId');
@@ -428,10 +431,23 @@ function PageAvis({ token }) {
       .then(r => {
         setAvis(r.data.avis);
         setMoyenne(r.data.moyenneNote);
+        const init = {};
+        r.data.avis.forEach(a => { init[a.id] = a.reponse ?? ''; });
+        setReponses(init);
       })
       .catch(() => setErreur('Impossible de charger les avis.'))
       .finally(() => setLoading(false));
   }, []);
+
+  const publierReponse = async (avisId) => {
+    if (!reponses[avisId]?.trim()) return;
+    setRepondant(avisId);
+    try {
+      await axios.post(`${API}/api/commercant/avis/${avisId}/reponse`, { reponse: reponses[avisId] }, { headers: { Authorization: `Bearer ${token}` } });
+      setAvis(prev => prev.map(a => a.id === avisId ? { ...a, reponse: reponses[avisId] } : a));
+    } catch {}
+    setRepondant(null);
+  };
 
   if (loading) return <p style={{ color: '#999', padding: '40px', textAlign: 'center' }}>Chargement...</p>;
 
@@ -463,9 +479,139 @@ function PageAvis({ token }) {
               </div>
               <span style={{ color: '#aaa', fontSize: '13px' }}>{new Date(a.createdAt).toLocaleDateString('fr-FR')}</span>
             </div>
-            {a.commentaire && <p style={{ color: '#555', margin: 0, fontSize: '14px', lineHeight: '1.6' }}>{a.commentaire}</p>}
+            {a.commentaire && <p style={{ color: '#555', margin: '0 0 12px', fontSize: '14px', lineHeight: '1.6' }}>{a.commentaire}</p>}
+            {/* Réponse existante */}
+            {a.reponse && (
+              <div style={{ background: '#f5f0ff', borderLeft: `3px solid ${VIOLET}`, borderRadius: '8px', padding: '10px 14px', marginBottom: '10px' }}>
+                <div style={{ fontSize: '12px', color: VIOLET, fontWeight: '600', marginBottom: '4px' }}>Votre réponse</div>
+                <div style={{ fontSize: '14px', color: '#333' }}>{a.reponse}</div>
+              </div>
+            )}
+            {/* Zone de réponse */}
+            {!a.reponse && (
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <input
+                  value={reponses[a.id] ?? ''}
+                  onChange={e => setReponses(prev => ({ ...prev, [a.id]: e.target.value }))}
+                  placeholder="Répondre à cet avis..."
+                  style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #eee', fontSize: '14px' }}
+                />
+                <button
+                  onClick={() => publierReponse(a.id)}
+                  disabled={repondant === a.id || !reponses[a.id]?.trim()}
+                  style={{ background: VIOLET, color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', opacity: (!reponses[a.id]?.trim() || repondant === a.id) ? 0.5 : 1 }}
+                >
+                  {repondant === a.id ? '...' : 'Répondre'}
+                </button>
+              </div>
+            )}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function PageProfil({ token }) {
+  const [form, setForm] = useState({ nom: '', telephone: '', adresse: '', description: '', horaires: '' });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [mdp, setMdp] = useState({ ancien: '', nouveau: '', confirm: '' });
+  const [savingMdp, setSavingMdp] = useState(false);
+  const [msgMdp, setMsgMdp] = useState('');
+
+  useEffect(() => {
+    axios.get(`${API}/api/commercant/profil`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => {
+        const c = r.data.commercant;
+        setForm({ nom: c.nom ?? '', telephone: c.telephone ?? '', adresse: c.adresse ?? '', description: c.description ?? '', horaires: c.horaires ?? '' });
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  const sauvegarder = async (e) => {
+    e.preventDefault();
+    setSaving(true); setMsg('');
+    try {
+      await axios.patch(`${API}/api/commercant/profil`, form, { headers: { Authorization: `Bearer ${token}` } });
+      setMsg('✅ Profil mis à jour !');
+    } catch (err) {
+      setMsg('❌ ' + (err.response?.data?.message || 'Erreur'));
+    }
+    setSaving(false);
+  };
+
+  const changerMdp = async (e) => {
+    e.preventDefault();
+    if (mdp.nouveau !== mdp.confirm) { setMsgMdp('❌ Les mots de passe ne correspondent pas'); return; }
+    if (mdp.nouveau.length < 8) { setMsgMdp('❌ Minimum 8 caractères'); return; }
+    setSavingMdp(true); setMsgMdp('');
+    try {
+      await axios.post(`${API}/api/auth/changer-mdp`, { ancienMotDePasse: mdp.ancien, nouveauMotDePasse: mdp.nouveau }, { headers: { Authorization: `Bearer ${token}` } });
+      setMsgMdp('✅ Mot de passe modifié !');
+      setMdp({ ancien: '', nouveau: '', confirm: '' });
+    } catch (err) {
+      setMsgMdp('❌ ' + (err.response?.data?.message || 'Mot de passe actuel incorrect'));
+    }
+    setSavingMdp(false);
+  };
+
+  if (loading) return <p style={{ color: '#999', padding: '40px', textAlign: 'center' }}>Chargement...</p>;
+
+  return (
+    <div>
+      <h2 style={{ marginBottom: '24px', color: '#1a1a2e' }}>Mon profil</h2>
+
+      <div style={{ background: 'white', borderRadius: '16px', padding: '28px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)', marginBottom: '20px' }}>
+        <h3 style={{ marginBottom: '20px', color: '#1a1a2e' }}>Informations générales</h3>
+        {msg && <div style={{ padding: '12px 16px', borderRadius: '10px', marginBottom: '16px', background: msg.startsWith('✅') ? '#e8f8f5' : '#fce8e8', color: msg.startsWith('✅') ? '#27ae60' : '#c00', fontSize: '14px' }}>{msg}</div>}
+        <form onSubmit={sauvegarder} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          {[
+            { key: 'nom', label: 'Nom du commerce', placeholder: 'Ex: Boulangerie Martin' },
+            { key: 'telephone', label: 'Téléphone', placeholder: '06 00 00 00 00' },
+            { key: 'adresse', label: 'Adresse', placeholder: '12 rue de la Paix, Paris' },
+          ].map(f => (
+            <div key={f.key}>
+              <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#333', fontSize: '14px' }}>{f.label}</label>
+              <input value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} style={inputStyle} />
+            </div>
+          ))}
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#333', fontSize: '14px' }}>Description</label>
+            <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Décrivez votre commerce..." rows={3} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }} />
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#333', fontSize: '14px' }}>Horaires <span style={{ color: '#aaa', fontWeight: 'normal' }}>(ex: Lun-Ven 9h-18h, Sam 10h-17h)</span></label>
+            <input value={form.horaires} onChange={e => setForm(p => ({ ...p, horaires: e.target.value }))} placeholder="Lun-Ven 9h-19h, Sam 9h-13h, Dim fermé" style={inputStyle} />
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <button type="submit" disabled={saving} style={{ background: `linear-gradient(135deg, ${VIOLET}, #9b59b6)`, color: 'white', border: 'none', padding: '14px 32px', borderRadius: '10px', fontSize: '15px', fontWeight: 'bold', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+              {saving ? 'Enregistrement...' : 'Enregistrer les modifications'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div style={{ background: 'white', borderRadius: '16px', padding: '28px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
+        <h3 style={{ marginBottom: '20px', color: '#1a1a2e' }}>Changer le mot de passe</h3>
+        {msgMdp && <div style={{ padding: '12px 16px', borderRadius: '10px', marginBottom: '16px', background: msgMdp.startsWith('✅') ? '#e8f8f5' : '#fce8e8', color: msgMdp.startsWith('✅') ? '#27ae60' : '#c00', fontSize: '14px' }}>{msgMdp}</div>}
+        <form onSubmit={changerMdp} style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '400px' }}>
+          {[
+            { key: 'ancien', label: 'Mot de passe actuel', type: 'password' },
+            { key: 'nouveau', label: 'Nouveau mot de passe', type: 'password' },
+            { key: 'confirm', label: 'Confirmer le nouveau', type: 'password' },
+          ].map(f => (
+            <div key={f.key}>
+              <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#333', fontSize: '14px' }}>{f.label}</label>
+              <input type={f.type} value={mdp[f.key]} onChange={e => setMdp(p => ({ ...p, [f.key]: e.target.value }))} style={inputStyle} />
+            </div>
+          ))}
+          <button type="submit" disabled={savingMdp} style={{ background: '#2ecc71', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold', cursor: savingMdp ? 'not-allowed' : 'pointer', opacity: savingMdp ? 0.7 : 1, alignSelf: 'flex-start' }}>
+            {savingMdp ? 'Modification...' : 'Changer le mot de passe'}
+          </button>
+        </form>
       </div>
     </div>
   );
@@ -500,6 +646,7 @@ function Dashboard() {
       case 'recompenses': return <PageRecompenses token={token} />;
       case 'campagne': return <PageCampagne token={token} />;
       case 'avis': return <PageAvis token={token} />;
+      case 'profil': return <PageProfil token={token} />;
       default: return null;
     }
   };
