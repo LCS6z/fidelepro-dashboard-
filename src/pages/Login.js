@@ -32,6 +32,7 @@ function Login() {
       const res = await axios.post(`${API}/api/auth/connexion/commercant`, { email, password });
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('role', 'commercant');
+      localStorage.setItem('commercantId', res.data.commercant.id);
       window.location.href = '/dashboard';
       return;
     } catch (err) {
