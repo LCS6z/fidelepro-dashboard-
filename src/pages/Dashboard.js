@@ -513,10 +513,11 @@ function PageAvis({ token }) {
 }
 
 function PageProfil({ token }) {
-  const [form, setForm] = useState({ nom: '', telephone: '', adresse: '', description: '', horaires: '' });
+  const [form, setForm] = useState({ nom: '', telephone: '', adresse: '', description: '', horaires: '', latitude: '', longitude: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const [geoLoading, setGeoLoading] = useState(false);
   const [mdp, setMdp] = useState({ ancien: '', nouveau: '', confirm: '' });
   const [savingMdp, setSavingMdp] = useState(false);
   const [msgMdp, setMsgMdp] = useState('');
@@ -525,17 +526,35 @@ function PageProfil({ token }) {
     axios.get(`${API}/api/commercant/profil`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => {
         const c = r.data.commercant;
-        setForm({ nom: c.nom ?? '', telephone: c.telephone ?? '', adresse: c.adresse ?? '', description: c.description ?? '', horaires: c.horaires ?? '' });
+        setForm({ nom: c.nom ?? '', telephone: c.telephone ?? '', adresse: c.adresse ?? '', description: c.description ?? '', horaires: c.horaires ?? '', latitude: c.latitude ?? '', longitude: c.longitude ?? '' });
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [token]);
 
+  const localiserCommerce = () => {
+    if (!navigator.geolocation) { setMsg('❌ Géolocalisation non supportée par ce navigateur'); return; }
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setForm(p => ({ ...p, latitude: pos.coords.latitude.toString(), longitude: pos.coords.longitude.toString() }));
+        setGeoLoading(false);
+        setMsg('📍 Position détectée — enregistrez pour sauvegarder.');
+      },
+      () => { setMsg('❌ Impossible de détecter la position'); setGeoLoading(false); }
+    );
+  };
+
   const sauvegarder = async (e) => {
     e.preventDefault();
     setSaving(true); setMsg('');
     try {
-      await axios.patch(`${API}/api/commercant/profil`, form, { headers: { Authorization: `Bearer ${token}` } });
+      const payload = {
+        ...form,
+        latitude: form.latitude !== '' ? parseFloat(form.latitude) : null,
+        longitude: form.longitude !== '' ? parseFloat(form.longitude) : null,
+      };
+      await axios.patch(`${API}/api/commercant/profil`, payload, { headers: { Authorization: `Bearer ${token}` } });
       setMsg('✅ Profil mis à jour !');
     } catch (err) {
       setMsg('❌ ' + (err.response?.data?.message || 'Erreur'));
@@ -585,6 +604,19 @@ function PageProfil({ token }) {
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#333', fontSize: '14px' }}>Horaires <span style={{ color: '#aaa', fontWeight: 'normal' }}>(ex: Lun-Ven 9h-18h, Sam 10h-17h)</span></label>
             <input value={form.horaires} onChange={e => setForm(p => ({ ...p, horaires: e.target.value }))} placeholder="Lun-Ven 9h-19h, Sam 9h-13h, Dim fermé" style={inputStyle} />
+          </div>
+          <div style={{ gridColumn: '1 / -1', background: '#f7f4ff', borderRadius: '12px', padding: '16px 20px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '700', color: '#333', fontSize: '14px' }}>
+              📍 Position GPS <span style={{ color: '#aaa', fontWeight: 'normal' }}>(pour les notifications de proximité clients)</span>
+            </label>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input value={form.latitude} onChange={e => setForm(p => ({ ...p, latitude: e.target.value }))} placeholder="Latitude (ex: 48.8566)" style={{ ...inputStyle, flex: 1, minWidth: '160px' }} />
+              <input value={form.longitude} onChange={e => setForm(p => ({ ...p, longitude: e.target.value }))} placeholder="Longitude (ex: 2.3522)" style={{ ...inputStyle, flex: 1, minWidth: '160px' }} />
+              <button type="button" onClick={localiserCommerce} disabled={geoLoading} style={{ background: VIOLET, color: 'white', border: 'none', padding: '12px 18px', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold', cursor: geoLoading ? 'not-allowed' : 'pointer', opacity: geoLoading ? 0.7 : 1, whiteSpace: 'nowrap' }}>
+                {geoLoading ? '⏳ Détection...' : '📍 Détecter ma position'}
+              </button>
+            </div>
+            <p style={{ margin: '8px 0 0', color: '#888', fontSize: '12px' }}>Cliquez sur "Détecter" depuis l'adresse de votre commerce, ou entrez les coordonnées manuellement.</p>
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <button type="submit" disabled={saving} style={{ background: `linear-gradient(135deg, ${VIOLET}, #9b59b6)`, color: 'white', border: 'none', padding: '14px 32px', borderRadius: '10px', fontSize: '15px', fontWeight: 'bold', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
